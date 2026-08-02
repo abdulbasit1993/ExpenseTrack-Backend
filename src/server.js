@@ -6,6 +6,8 @@ import cors from "cors";
 
 import { connectDB } from "./config/db.js";
 import authRoutes from "./routes/authRoutes.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
+import transactionRoutes from "./routes/transactionRoutes.js";
 
 import swaggerUi from "swagger-ui-express";
 import swaggerSpec from "./config/swagger.js";
@@ -26,6 +28,10 @@ app.get("/api-docs.json", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+
+app.use("/api/categories", categoryRoutes);
+
+app.use("/api/transactions", transactionRoutes);
 
 app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
