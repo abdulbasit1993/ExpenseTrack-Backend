@@ -272,3 +272,208 @@ export async function getTransactions(req, res) {
     });
   }
 }
+
+export async function getTransactionById(req, res) {
+  try {
+    const transactionId = getObjectId(req.params.id);
+
+    if (!transactionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid transaction ID",
+      });
+    }
+
+    const transaction = await getDB().collection("transactions").findOne({
+      _id: transactionId,
+      userId: req.user.userId,
+    });
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        transaction,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function updateTransaction(req, res) {
+  try {
+    const transactionId = getObjectId(req.params.id);
+
+    if (!transactionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid transaction ID",
+      });
+    }
+
+    const allowedFields = ["categoryId", "type", "amount", "note", "date"];
+
+    const updatePayload = Object.fromEntries(
+      Object.entries(req.body ?? {}).filter(([key]) =>
+        allowedFields.includes(key),
+      ),
+    );
+
+    if (!Object.keys(updatePayload).length) {
+      return res.status(400).json({
+        success: false,
+        message: "Provide at least one valid field to update",
+      });
+    }
+
+    const payloadErrors = validateTransactionInput(updatePayload, {
+      partial: true,
+    });
+
+    if (payloadErrors.length) {
+      return res.status(400).json({
+        success: false,
+        errors: payloadErrors,
+      });
+    }
+
+    const db = getDB();
+    const transactions = db.collection("transactions");
+
+    const existingTransaction = await transactions.findOne({
+      _id: transactionId,
+      userId: req.user.userId,
+    });
+
+    if (!existingTransaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found",
+      });
+    }
+
+    const finalTransaction = {
+      ...existingTransaction,
+      ...updatePayload,
+    };
+
+    const finalErrors = validateTransactionInput(finalTransaction);
+
+    if (finalErrors.length) {
+      return res.status(400).json({
+        success: false,
+        errors: finalErrors,
+      });
+    }
+
+    const finalCategoryId = getObjectId(finalTransaction.categoryId);
+
+    const category = await getActiveAccessibleCategory(
+      db,
+      finalCategoryId,
+      req.user.userId,
+    );
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: "Active category not found",
+      });
+    }
+
+    if (category.type !== finalTransaction.type) {
+      return res.status(400).json({
+        success: false,
+        message: "Transaction type must match the category type",
+      });
+    }
+
+    const update = {
+      ...updatePayload,
+      updatedAt: new Date(),
+    };
+
+    if (update.categoryId !== undefined) {
+      update.categoryId = getObjectId(update.categoryId);
+    }
+
+    if (update.note !== undefined) {
+      update.note = update.note.trim();
+    }
+
+    if (update.date !== undefined) {
+      update.date = new Date(update.date);
+    }
+
+    const transaction = await transactions.findOneAndUpdate(
+      {
+        _id: transactionId,
+        userId: req.user.userId,
+      },
+      {
+        $set: update,
+      },
+      {
+        returnDocument: "after",
+      },
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Transaction updated successfully",
+      data: {
+        transaction,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function deleteTransaction(req, res) {
+  try {
+    const transactionId = getObjectId(req.params.id);
+
+    if (!transactionId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid transaction ID",
+      });
+    }
+
+    const result = await getDB().collection("transactions").deleteOne({
+      _id: transactionId,
+      userId: req.user.userId,
+    });
+
+    if (!result.deletedCount) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Transaction deleted successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}

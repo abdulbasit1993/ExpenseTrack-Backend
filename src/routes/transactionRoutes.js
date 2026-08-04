@@ -4,6 +4,9 @@ import { protect } from "../middlewares/authMiddleware.js";
 import {
   createTransaction,
   getTransactions,
+  getTransactionById,
+  updateTransaction,
+  deleteTransaction,
 } from "../controllers/transactionController.js";
 
 const router = express.Router();
@@ -70,5 +73,78 @@ router.post("/add", createTransaction);
  *         description: Bad request
  */
 router.get("/", getTransactions);
+
+/**
+ * @swagger
+ * /api/transactions/{id}:
+ *   get:
+ *     summary: Get a transaction by ID
+ *     tags:
+ *       - Transactions
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         example: 507f1f77bcf86cd799439011
+ *     responses:
+ *       200:
+ *         description: Transaction retrieved successfully
+ *       400:
+ *         description: Invalid transaction ID
+ *       404:
+ *         description: Transaction not found
+ */
+router.get("/:id", getTransactionById);
+
+/**
+ * @swagger
+ * /api/transactions/{id}:
+ *   put:
+ *     summary: Update a transaction
+ *     tags:
+ *       - Transactions
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         example: 507f1f77bcf86cd799439011
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           example:
+ *             amount: 3000
+ *             note: Updated grocery expense
+ *     responses:
+ *       200:
+ *         description: Transaction updated successfully
+ *       400:
+ *         description: Bad request
+ *       404:
+ *         description: Transaction or category not found
+ */
+router.put("/:id", updateTransaction);
+
+/**
+ * @swagger
+ * /api/transactions/{id}:
+ *   delete:
+ *     summary: Delete a transaction
+ *     tags:
+ *       - Transactions
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         example: 507f1f77bcf86cd799439011
+ *     responses:
+ *       200:
+ *         description: Transaction deleted successfully
+ *       400:
+ *         description: Invalid transaction ID
+ *       404:
+ *         description: Transaction not found
+ */
+router.delete("/:id", deleteTransaction);
 
 export default router;

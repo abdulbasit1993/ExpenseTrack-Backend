@@ -11,6 +11,7 @@ const router = express.Router();
  *     summary: Register a new user
  *     tags:
  *       - Authentication
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:
@@ -35,6 +36,7 @@ router.post("/register", registerUser);
  *     summary: Log in a user
  *     tags:
  *       - Authentication
+ *     security: []
  *     requestBody:
  *       required: true
  *       content:
