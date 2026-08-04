@@ -1,7 +1,10 @@
 import express from "express";
 
 import { protect } from "../middlewares/authMiddleware.js";
-import { createTransaction } from "../controllers/transactionController.js";
+import {
+  createTransaction,
+  getTransactions,
+} from "../controllers/transactionController.js";
 
 const router = express.Router();
 
@@ -33,5 +36,39 @@ router.use(protect);
  *         description: Category not found
  */
 router.post("/add", createTransaction);
+
+/**
+ * @swagger
+ * /api/transactions:
+ *   get:
+ *     summary: Get authenticated user's transactions
+ *     tags:
+ *       - Transactions
+ *     parameters:
+ *       - in: query
+ *         name: type
+ *         example: expense
+ *       - in: query
+ *         name: categoryId
+ *         example: 507f1f77bcf86cd799439011
+ *       - in: query
+ *         name: fromDate
+ *         example: 2026-08-01
+ *       - in: query
+ *         name: toDate
+ *         example: 2026-08-31
+ *       - in: query
+ *         name: page
+ *         example: 1
+ *       - in: query
+ *         name: limit
+ *         example: 20
+ *     responses:
+ *       200:
+ *         description: Transactions retrieved successfully
+ *       400:
+ *         description: Bad request
+ */
+router.get("/", getTransactions);
 
 export default router;

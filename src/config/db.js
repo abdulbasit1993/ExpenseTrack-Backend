@@ -58,24 +58,38 @@ async function seedDefaultCategories() {
 
 async function ensureCategoryUniqueIndex() {
   const categories = db.collection("categories");
+
+  const collections = await db
+    .listCollections({ name: "categories" })
+    .toArray();
+
+  if (collections.length === 0) {
+    // Collection doesn't exist yet.
+    await categories.createIndex(categoryUniqueIndex.key, {
+      name: categoryUniqueIndex.name,
+      unique: true,
+    });
+
+    return;
+  }
+
   const indexes = await categories.listIndexes().toArray();
+
   const existingIndex = indexes.find(
-    (index) => index.name === categoryUniqueIndex.name,
+    (i) => i.name === categoryUniqueIndex.name,
   );
 
   if (existingIndex) {
     const hasExpectedKey =
-      JSON.stringify(existingIndex.key) === JSON.stringify(categoryUniqueIndex.key);
+      JSON.stringify(existingIndex.key) ===
+      JSON.stringify(categoryUniqueIndex.key);
 
     if (!hasExpectedKey) {
-      throw new Error(
-        `The categories index "${categoryUniqueIndex.name}" has an unexpected key definition.`,
-      );
+      throw new Error("Unexpected index definition.");
     }
 
     if (!existingIndex.unique) {
       await categories.dropIndex(categoryUniqueIndex.name);
-      console.log("Replaced legacy categories index with a unique index");
     }
   }
 

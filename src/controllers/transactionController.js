@@ -165,3 +165,110 @@ export async function createTransaction(req, res) {
     });
   }
 }
+
+export async function getTransactions(req, res) {
+  try {
+    const { type, categoryId, fromDate, toDate } = req.query;
+    const pagination = getPagination(req.query);
+
+    if (pagination.error) {
+      return res.status(400).json({
+        success: false,
+        message: pagination.error,
+      });
+    }
+
+    if (type && !transactionTypes.includes(type)) {
+      return res.status(400).json({
+        success: false,
+        message: "Type must be either income or expense",
+      });
+    }
+
+    const parsedCategoryId = categoryId ? getObjectId(categoryId) : null;
+
+    if (categoryId && !parsedCategoryId) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid category ID",
+      });
+    }
+
+    const parsedFromDate = parseFilterDate(fromDate, "fromDate");
+    const parsedToDate = parseFilterDate(toDate, "toDate");
+
+    if (parsedFromDate.error || parsedToDate.error) {
+      return res.status(400).json({
+        success: false,
+        message: parsedFromDate.error || parsedToDate.error,
+      });
+    }
+
+    if (
+      parsedFromDate.value &&
+      parsedToDate.value &&
+      parsedFromDate.value > parsedToDate.value
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "fromDate cannot be later than toDate",
+      });
+    }
+
+    const filter = {
+      userId: req.user.userId,
+    };
+
+    if (type) {
+      filter.type = type;
+    }
+
+    if (parsedCategoryId) {
+      filter.categoryId = parsedCategoryId;
+    }
+
+    if (parsedFromDate.value || parsedToDate.value) {
+      filter.date = {};
+
+      if (parsedFromDate.value) {
+        filter.date.$gte = parsedFromDate.value;
+      }
+
+      if (parsedToDate.value) {
+        filter.date.$lte = parsedToDate.value;
+      }
+    }
+
+    const { page, limit } = pagination;
+    const db = getDB();
+    const transactions = db.collection("transactions");
+
+    const [items, total] = await Promise.all([
+      transactions
+        .find(filter)
+        .sort({ date: -1, createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .toArray(),
+      transactions.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        transactions: items,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: total === 0 ? 0 : Math.ceil(total / limit),
+        },
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
