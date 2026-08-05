@@ -1,6 +1,11 @@
 import express from "express";
 
-import { registerUser, loginUser } from "../controllers/authController.js";
+import {
+  registerUser,
+  loginUser,
+  getMe,
+} from "../controllers/authController.js";
+import { protect } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -53,5 +58,39 @@ router.post("/register", registerUser);
  *         description: Bad request
  */
 router.post("/login", loginUser);
+
+/**
+ * @swagger
+ * /api/auth/me:
+ *   get:
+ *     summary: Get the currently authenticated user's profile
+ *     tags:
+ *       - Authentication
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Authenticated user profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               data:
+ *                 user:
+ *                   _id: 65f2b4c8d5e1a2b3c4d5e6f7
+ *                   firstName: John
+ *                   lastName: Doe
+ *                   email: john@example.com
+ *                   monthlyBudget: 50000
+ *                   currency: PKR
+ *                   profileImage: ""
+ *                   createdAt: 2026-02-14T10:00:00.000Z
+ *                   updatedAt: 2026-02-14T10:00:00.000Z
+ *       401:
+ *         description: Missing, invalid, or expired authorization token
+ *       404:
+ *         description: User not found
+ */
+router.get("/me", protect, getMe);
 
 export default router;
