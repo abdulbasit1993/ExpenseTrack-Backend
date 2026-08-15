@@ -163,7 +163,6 @@ export async function createTransaction(req, res) {
       title: body.title.trim(),
       description: body.description?.trim() || "",
       amount: body.amount,
-      note: body.note?.trim() || "",
       date: new Date(body.date),
       createdAt: new Date(),
       updatedAt: new Date(),

@@ -10,8 +10,6 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 
 import swaggerUi from "swagger-ui-express";
-import swaggerSpec from "./config/swagger.json" with { type: "json" };
-// import swaggerSpec from "./config/swagger.js";
 
 const app = express();
 
@@ -24,9 +22,20 @@ app.get("/api", (req, res) => {
   });
 });
 
-app.get("/api-docs.json", (req, res) => {
-  res.status(200).json(swaggerSpec);
+// Swagger UI loads this static OpenAPI document instead of parsing route comments.
+app.get("/swagger.json", (req, res) => {
+  res.sendFile(new URL("./swagger.json", import.meta.url).pathname);
 });
+
+app.use(
+  "/api/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(null, {
+    swaggerOptions: {
+      url: "/swagger.json",
+    },
+  }),
+);
 
 app.use("/api/auth", authRoutes);
 
@@ -34,15 +43,13 @@ app.use("/api/categories", categoryRoutes);
 
 app.use("/api/transactions", transactionRoutes);
 
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
-
 const PORT = process.env.PORT || 5000;
 
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
-      console.log("Swagger docs available at '<host>/api/docs'");
+      console.log(`Swagger docs available at http://localhost:${PORT}/api/docs`);
     });
   })
   .catch(console.error);
