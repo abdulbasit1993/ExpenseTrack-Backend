@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "build:swagger": "node src/config/generate-swagger.js",
+    "predev": "npm run build:swagger",
     "dev": "nodemon src/server.js",
+    "prestart": "npm run build:swagger",
     "start": "node src/server.js"
   },
   "keywords": [],

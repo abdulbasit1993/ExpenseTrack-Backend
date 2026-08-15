@@ -25,10 +25,11 @@ router.use(protect);
  *       content:
  *         application/json:
  *           example:
+ *             title: Weekly groceries
+ *             description: Groceries for the week
  *             categoryId: 507f1f77bcf86cd799439011
  *             type: expense
  *             amount: 2450.5
- *             note: Weekly groceries
  *             date: 2026-08-02
  *     responses:
  *       201:
@@ -36,7 +37,9 @@ router.use(protect);
  *       400:
  *         description: Bad request
  *       404:
- *         description: Category not found
+ *         description: Active category not found
+ *       500:
+ *         description: Internal server error
  */
 router.post("/add", createTransaction);
 
@@ -50,27 +53,51 @@ router.post("/add", createTransaction);
  *     parameters:
  *       - in: query
  *         name: type
+ *         schema:
+ *           type: string
+ *           enum: [income, expense]
  *         example: expense
  *       - in: query
  *         name: categoryId
+ *         schema:
+ *           type: string
  *         example: 507f1f77bcf86cd799439011
  *       - in: query
  *         name: fromDate
+ *         description: Include transactions dated on or after this value.
+ *         schema:
+ *           type: string
+ *           format: date
  *         example: 2026-08-01
  *       - in: query
  *         name: toDate
+ *         description: Include transactions dated on or before this value.
+ *         schema:
+ *           type: string
+ *           format: date
  *         example: 2026-08-31
  *       - in: query
  *         name: page
+ *         description: Positive page number. Defaults to 1.
+ *         schema:
+ *           type: integer
+ *           minimum: 1
  *         example: 1
  *       - in: query
  *         name: limit
+ *         description: Results per page. Defaults to 20; maximum is 100.
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
  *         example: 20
  *     responses:
  *       200:
  *         description: Transactions retrieved successfully
  *       400:
- *         description: Bad request
+ *         description: Invalid pagination, type, category ID, or date filter
+ *       500:
+ *         description: Internal server error
  */
 router.get("/", getTransactions);
 
@@ -93,6 +120,8 @@ router.get("/", getTransactions);
  *         description: Invalid transaction ID
  *       404:
  *         description: Transaction not found
+ *       500:
+ *         description: Internal server error
  */
 router.get("/:id", getTransactionById);
 
@@ -113,15 +142,21 @@ router.get("/:id", getTransactionById);
  *       content:
  *         application/json:
  *           example:
+ *             title: Weekly groceries
+ *             description: Groceries for the week
+ *             categoryId: 507f1f77bcf86cd799439011
+ *             type: expense
  *             amount: 3000
- *             note: Updated grocery expense
+ *             date: 2026-08-03
  *     responses:
  *       200:
  *         description: Transaction updated successfully
  *       400:
- *         description: Bad request
+ *         description: Invalid transaction ID, update payload, or category/type combination
  *       404:
- *         description: Transaction or category not found
+ *         description: Transaction or active category not found
+ *       500:
+ *         description: Internal server error
  */
 router.put("/:id", updateTransaction);
 
@@ -144,6 +179,8 @@ router.put("/:id", updateTransaction);
  *         description: Invalid transaction ID
  *       404:
  *         description: Transaction not found
+ *       500:
+ *         description: Internal server error
  */
 router.delete("/:id", deleteTransaction);
 
