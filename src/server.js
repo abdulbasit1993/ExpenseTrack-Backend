@@ -10,7 +10,8 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import transactionRoutes from "./routes/transactionRoutes.js";
 
 import swaggerUi from "swagger-ui-express";
-import swaggerSpec from "./config/swagger.js";
+import swaggerSpec from "./config/swagger.json" with { type: "json" };
+// import swaggerSpec from "./config/swagger.js";
 
 const app = express();
 
