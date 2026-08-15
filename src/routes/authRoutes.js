@@ -71,21 +71,6 @@ router.post("/login", loginUser);
  *     responses:
  *       200:
  *         description: Authenticated user profile retrieved successfully
- *         content:
- *           application/json:
- *             example:
- *               success: true
- *               data:
- *                 user:
- *                   _id: 65f2b4c8d5e1a2b3c4d5e6f7
- *                   firstName: John
- *                   lastName: Doe
- *                   email: john@example.com
- *                   monthlyBudget: 50000
- *                   currency: PKR
- *                   profileImage: ""
- *                   createdAt: 2026-02-14T10:00:00.000Z
- *                   updatedAt: 2026-02-14T10:00:00.000Z
  *       401:
  *         description: Missing, invalid, or expired authorization token
  *       404:

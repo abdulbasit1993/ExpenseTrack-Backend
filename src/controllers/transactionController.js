@@ -20,18 +20,42 @@ function isValidDate(value) {
 function validateTransactionInput(data, { partial = false } = {}) {
   const errors = [];
 
+  // Title
+  if (!partial || data.title !== undefined) {
+    if (
+      typeof data.title !== "string" ||
+      !data.title.trim() ||
+      data.title.trim().length > 100
+    ) {
+      errors.push("Title is required and must be at most 100 characters long");
+    }
+  }
+
+  // Description
+  if (data.description !== undefined) {
+    if (
+      typeof data.description !== "string" ||
+      data.description.trim().length > 1000
+    ) {
+      errors.push("Description must be a string with at most 1000 characters");
+    }
+  }
+
+  // Category
   if (!partial || data.categoryId !== undefined) {
     if (!getObjectId(data.categoryId)) {
       errors.push("categoryId must be a valid category ID");
     }
   }
 
+  // Type
   if (!partial || data.type !== undefined) {
     if (!transactionTypes.includes(data.type)) {
       errors.push("Type must be either income or expense");
     }
   }
 
+  // Amount
   if (!partial || data.amount !== undefined) {
     if (
       typeof data.amount !== "number" ||
@@ -42,15 +66,10 @@ function validateTransactionInput(data, { partial = false } = {}) {
     }
   }
 
+  // Date
   if (!partial || data.date !== undefined) {
     if (!isValidDate(data.date)) {
       errors.push("Date must be a valid date");
-    }
-  }
-
-  if (data.note !== undefined) {
-    if (typeof data.note !== "string" || data.note.trim().length > 500) {
-      errors.push("Note must be a string with at most 500 characterss");
     }
   }
 
@@ -100,6 +119,7 @@ function parseFilterDate(value, fieldName) {
   return { value: date };
 }
 
+// Create Transaction
 export async function createTransaction(req, res) {
   try {
     const body = req.body ?? {};
@@ -113,6 +133,7 @@ export async function createTransaction(req, res) {
     }
 
     const db = getDB();
+
     const categoryId = getObjectId(body.categoryId);
 
     const category = await getActiveAccessibleCategory(
@@ -139,6 +160,8 @@ export async function createTransaction(req, res) {
       userId: req.user.userId,
       categoryId,
       type: body.type,
+      title: body.title.trim(),
+      description: body.description?.trim() || "",
       amount: body.amount,
       note: body.note?.trim() || "",
       date: new Date(body.date),
@@ -166,9 +189,11 @@ export async function createTransaction(req, res) {
   }
 }
 
+// Get Transactions
 export async function getTransactions(req, res) {
   try {
     const { type, categoryId, fromDate, toDate } = req.query;
+
     const pagination = getPagination(req.query);
 
     if (pagination.error) {
@@ -240,7 +265,9 @@ export async function getTransactions(req, res) {
     }
 
     const { page, limit } = pagination;
+
     const db = getDB();
+
     const transactions = db.collection("transactions");
 
     const [items, total] = await Promise.all([
@@ -273,6 +300,7 @@ export async function getTransactions(req, res) {
   }
 }
 
+// Get Transaction By ID
 export async function getTransactionById(req, res) {
   try {
     const transactionId = getObjectId(req.params.id);
@@ -310,6 +338,7 @@ export async function getTransactionById(req, res) {
   }
 }
 
+// Update Transaction
 export async function updateTransaction(req, res) {
   try {
     const transactionId = getObjectId(req.params.id);
@@ -321,7 +350,14 @@ export async function updateTransaction(req, res) {
       });
     }
 
-    const allowedFields = ["categoryId", "type", "amount", "note", "date"];
+    const allowedFields = [
+      "title",
+      "description",
+      "categoryId",
+      "type",
+      "amount",
+      "date",
+    ];
 
     const updatePayload = Object.fromEntries(
       Object.entries(req.body ?? {}).filter(([key]) =>
@@ -348,6 +384,7 @@ export async function updateTransaction(req, res) {
     }
 
     const db = getDB();
+
     const transactions = db.collection("transactions");
 
     const existingTransaction = await transactions.findOne({
@@ -403,12 +440,16 @@ export async function updateTransaction(req, res) {
       updatedAt: new Date(),
     };
 
-    if (update.categoryId !== undefined) {
-      update.categoryId = getObjectId(update.categoryId);
+    if (update.title !== undefined) {
+      update.title = update.title.trim();
     }
 
-    if (update.note !== undefined) {
-      update.note = update.note.trim();
+    if (update.description !== undefined) {
+      update.description = update.description.trim();
+    }
+
+    if (update.categoryId !== undefined) {
+      update.categoryId = getObjectId(update.categoryId);
     }
 
     if (update.date !== undefined) {
