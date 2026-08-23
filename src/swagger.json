@@ -8,7 +8,8 @@
   "tags": [
     { "name": "Authentication" },
     { "name": "Categories" },
-    { "name": "Transactions" }
+    { "name": "Transactions" },
+    { "name": "Dashboard" }
   ],
   "security": [{ "bearerAuth": [] }],
   "paths": {
@@ -421,6 +422,50 @@
           "500": { "$ref": "#/components/responses/ServerError" }
         }
       }
+    },
+    "/api/dashboard": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get the authenticated user's dashboard",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "description": "Year for the monthly figures. Defaults to the current year.",
+            "schema": { "type": "integer", "minimum": 1920, "maximum": 2100 }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "description": "Month as a number (1-12) for the monthly figures. Defaults to the current month.",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 12 }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Number of recent transactions to return.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 5
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard summary, selected month, and recent transactions",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/DashboardResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
     }
   },
   "components": {
@@ -757,6 +802,94 @@
                       "limit": { "type": "integer" },
                       "total": { "type": "integer" },
                       "totalPages": { "type": "integer" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "DashboardSummary": {
+        "type": "object",
+        "properties": {
+          "currentBalance": {
+            "type": "number",
+            "description": "All-time income minus all-time expenses.",
+            "example": 15230.75
+          },
+          "totalIncome": {
+            "type": "number",
+            "description": "All-time income total.",
+            "example": 50000
+          },
+          "totalExpenses": {
+            "type": "number",
+            "description": "All-time expense total.",
+            "example": 34769.25
+          },
+          "monthlyBudget": {
+            "type": "number",
+            "description": "User's budget for the selected month.",
+            "example": 30000
+          },
+          "monthlySpent": {
+            "type": "number",
+            "description": "Total spent in the selected month.",
+            "example": 12450.5
+          }
+        }
+      },
+      "DashboardMonth": {
+        "type": "object",
+        "properties": {
+          "year": { "type": "integer", "example": 2026 },
+          "month": { "type": "integer", "minimum": 1, "maximum": 12, "example": 8 },
+          "label": { "type": "string", "example": "August 2026" }
+        }
+      },
+      "DashboardCategory": {
+        "type": "object",
+        "nullable": true,
+        "description": "Category of a recent transaction, or null when it has none.",
+        "properties": {
+          "_id": { "type": "string", "example": "507f1f77bcf86cd799439011" },
+          "name": { "type": "string", "example": "Groceries" },
+          "icon": { "type": "string", "example": "shopping-cart" }
+        }
+      },
+      "RecentTransaction": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "507f1f77bcf86cd799439011" },
+          "title": { "type": "string", "example": "Weekly groceries" },
+          "type": {
+            "type": "string",
+            "enum": ["income", "expense"],
+            "example": "expense"
+          },
+          "amount": { "type": "number", "example": 2450.5 },
+          "date": { "type": "string", "format": "date-time" },
+          "category": { "$ref": "#/components/schemas/DashboardCategory" }
+        }
+      },
+      "DashboardResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "summary": {
+                    "$ref": "#/components/schemas/DashboardSummary"
+                  },
+                  "month": { "$ref": "#/components/schemas/DashboardMonth" },
+                  "recentTransactions": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/RecentTransaction"
                     }
                   }
                 }

@@ -17,9 +17,14 @@ const categoryUniqueIndex = {
 const defaultCategories = [
   { name: "Salary", type: "income", icon: "wallet", color: "#22C55E" },
   { name: "Business", type: "income", icon: "building", color: "#0EA5E9" },
-  { name: "Investments", type: "income", icon: "chart", color: "#8B5CF6" },
+  {
+    name: "Investments",
+    type: "income",
+    icon: "trending-up",
+    color: "#8B5CF6",
+  },
 
-  { name: "Food", type: "expense", icon: "utensils", color: "#F59E0B" },
+  { name: "Food", type: "expense", icon: "restaurant", color: "#F59E0B" },
   { name: "Transport", type: "expense", icon: "car", color: "#3B82F6" },
   { name: "Other", type: "expense", icon: "circle", color: "#64748B" },
 ];
