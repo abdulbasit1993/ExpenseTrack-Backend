@@ -9,7 +9,8 @@
     { "name": "Authentication" },
     { "name": "Categories" },
     { "name": "Transactions" },
-    { "name": "Dashboard" }
+    { "name": "Dashboard" },
+    { "name": "User" }
   ],
   "security": [{ "bearerAuth": [] }],
   "paths": {
@@ -466,6 +467,110 @@
           "500": { "$ref": "#/components/responses/ServerError" }
         }
       }
+    },
+    "/api/user/preferences": {
+      "patch": {
+        "tags": ["User"],
+        "summary": "Update the authenticated user's preferences (monthlyBudget, currency)",
+        "description": "Partially updates the authenticated user's preferences. Send only the fields you want to change; at least one of monthlyBudget or currency is required.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserPreferencesInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferences updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPreferencesResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": {
+            "description": "User not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/user/profile": {
+      "put": {
+        "tags": ["User"],
+        "summary": "Update the authenticated user's profile",
+        "description": "Updates first name, last name, email, and/or profile image. All fields are optional — send only what you want to change. The profile image is uploaded as multipart/form-data and stored in Cloudinary.",
+        "consumes": ["multipart/form-data"],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "firstName": {
+                    "type": "string",
+                    "description": "Updated first name.",
+                    "example": "John"
+                  },
+                  "lastName": {
+                    "type": "string",
+                    "description": "Updated last name.",
+                    "example": "Doe"
+                  },
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "description": "Updated email address.",
+                    "example": "john@example.com"
+                  },
+                  "profileImage": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Profile image file (JPEG, PNG, WebP, GIF; max 5 MB)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": {
+            "description": "Email is already in use",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
     }
   },
   "components": {
@@ -640,6 +745,53 @@
           "date": { "type": "string", "format": "date" }
         }
       },
+      "UpdateUserPreferencesInput": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "monthlyBudget": {
+            "type": "number",
+            "description": "New monthly budget amount",
+            "minimum": 0,
+            "example": 3500
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code (e.g. USD, EUR, PKR)",
+            "example": "USD",
+            "pattern": "^[A-Z]{3}$"
+          }
+        }
+      },
+      "UpdateProfileInput": {
+        "type": "object",
+        "minProperties": 1,
+        "properties": {
+          "firstName": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Updated first name.",
+            "example": "John"
+          },
+          "lastName": {
+            "type": "string",
+            "maxLength": 50,
+            "description": "Updated last name.",
+            "example": "Doe"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "Updated email address.",
+            "example": "john@example.com"
+          },
+          "profileImage": {
+            "type": "string",
+            "format": "binary",
+            "description": "Profile image file (JPEG, PNG, WebP, GIF; max 5 MB)."
+          }
+        }
+      },
       "User": {
         "type": "object",
         "properties": {
@@ -716,6 +868,22 @@
         ]
       },
       "UserResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "user": { "$ref": "#/components/schemas/User" }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "UserPreferencesResponse": {
         "allOf": [
           { "$ref": "#/components/schemas/SuccessMessage" },
           {
