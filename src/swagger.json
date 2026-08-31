@@ -512,7 +512,7 @@
       "put": {
         "tags": ["User"],
         "summary": "Update the authenticated user's profile",
-        "description": "Updates first name, last name, email, and/or profile image. All fields are optional — send only what you want to change. The profile image is uploaded as multipart/form-data and stored in Cloudinary.",
+        "description": "Updates first name, last name, and/or profile image. All fields are optional — send only what you want to change. The profile image is uploaded as multipart/form-data and stored in Cloudinary.",
         "consumes": ["multipart/form-data"],
         "requestBody": {
           "required": true,
@@ -530,12 +530,6 @@
                     "type": "string",
                     "description": "Updated last name.",
                     "example": "Doe"
-                  },
-                  "email": {
-                    "type": "string",
-                    "format": "email",
-                    "description": "Updated email address.",
-                    "example": "john@example.com"
                   },
                   "profileImage": {
                     "type": "string",
@@ -560,14 +554,6 @@
           },
           "400": { "$ref": "#/components/responses/ValidationError" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
-          "409": {
-            "description": "Email is already in use",
-            "content": {
-              "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
-              }
-            }
-          },
           "500": { "$ref": "#/components/responses/ServerError" }
         }
       }
@@ -778,12 +764,6 @@
             "maxLength": 50,
             "description": "Updated last name.",
             "example": "Doe"
-          },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "description": "Updated email address.",
-            "example": "john@example.com"
           },
           "profileImage": {
             "type": "string",

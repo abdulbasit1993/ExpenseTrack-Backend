@@ -188,7 +188,7 @@ export async function updatePreferences(req, res) {
 
 /**
  * Updates the authenticated user's profile: first name, last name,
- * email, and/or profile image (Cloudinary).
+ * and/or profile image (Cloudinary).
  *
  * @param {import("express").Request} req - The Express request object.
  * @param {import("express").Response} res - The Express response object.
@@ -218,17 +218,6 @@ export async function updateProfile(req, res) {
       }
     }
 
-    // Email
-    if (body.email !== undefined) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (
-        typeof body.email !== "string" ||
-        !emailRegex.test(body.email.trim())
-      ) {
-        errors.push("Email must be a valid email address.");
-      }
-    }
-
     if (errors.length) {
       return res.status(400).json({
         success: false,
@@ -239,22 +228,6 @@ export async function updateProfile(req, res) {
     const db = getDB();
     const users = db.collection("users");
 
-    // Ensure the email is unique
-    if (body.email !== undefined) {
-      const newEmail = body.email.toLowerCase().trim();
-      const existingUser = await users.findOne({
-        email: newEmail,
-        _id: { $ne: req.user.userId },
-      });
-
-      if (existingUser) {
-        return res.status(409).json({
-          success: false,
-          message: "Email is already in use.",
-        });
-      }
-    }
-
     // Build the update payload
     const updatePayload = {};
 
@@ -264,10 +237,6 @@ export async function updateProfile(req, res) {
 
     if (body.lastName !== undefined) {
       updatePayload.lastName = body.lastName.trim();
-    }
-
-    if (body.email !== undefined) {
-      updatePayload.email = body.email.toLowerCase().trim();
     }
 
     // When a new image is uploaded, remember the old one so we can delete it after.
@@ -307,7 +276,7 @@ export async function updateProfile(req, res) {
       return res.status(400).json({
         success: false,
         message:
-          "Provide at least one field to update (firstName, lastName, email, or profileImage).",
+          "Provide at least one field to update (firstName, lastName, or profileImage).",
       });
     }
 
