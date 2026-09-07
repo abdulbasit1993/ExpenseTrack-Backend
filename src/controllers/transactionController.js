@@ -2,6 +2,7 @@ import { ObjectId } from "mongodb";
 import { getDB } from "../config/db.js";
 
 const transactionTypes = ["income", "expense"];
+const categorySources = ["ai", "manual"];
 
 function getObjectId(id) {
   if (id instanceof ObjectId) {
@@ -45,6 +46,13 @@ function validateTransactionInput(data, { partial = false } = {}) {
   if (!partial || data.categoryId !== undefined) {
     if (!getObjectId(data.categoryId)) {
       errors.push("categoryId must be a valid category ID");
+    }
+  }
+
+  // Category Source
+  if (!partial || data.categorySource !== undefined) {
+    if (!categorySources.includes(data.categorySource)) {
+      errors.push("categorySource must be either 'ai' or 'manual'");
     }
   }
 
@@ -164,6 +172,7 @@ export async function createTransaction(req, res) {
       description: body.description?.trim() || "",
       amount: body.amount,
       date: new Date(body.date),
+      categorySource: "manual",
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -356,6 +365,7 @@ export async function updateTransaction(req, res) {
       "type",
       "amount",
       "date",
+      "categorySource",
     ];
 
     const updatePayload = Object.fromEntries(

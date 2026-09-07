@@ -10,7 +10,8 @@
     { "name": "Categories" },
     { "name": "Transactions" },
     { "name": "Dashboard" },
-    { "name": "User" }
+    { "name": "User" },
+    { "name": "AI" }
   ],
   "security": [{ "bearerAuth": [] }],
   "paths": {
@@ -557,6 +558,34 @@
           "500": { "$ref": "#/components/responses/ServerError" }
         }
       }
+    },
+    "/api/ai/suggest-category": {
+      "post": {
+        "tags": ["AI"],
+        "summary": "Suggest a category for a transaction using AI",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SuggestCategoryInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Category suggested",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuggestCategoryResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
     }
   },
   "components": {
@@ -716,6 +745,13 @@
             "type": "string",
             "format": "date",
             "example": "2026-08-02"
+          },
+          "categorySource": {
+            "type": "string",
+            "enum": ["ai", "manual"],
+            "default": "manual",
+            "description": "How the category was selected. Defaults to 'manual'.",
+            "example": "manual"
           }
         }
       },
@@ -728,7 +764,8 @@
           "categoryId": { "type": "string", "pattern": "^[a-fA-F0-9]{24}$" },
           "type": { "type": "string", "enum": ["income", "expense"] },
           "amount": { "type": "number", "exclusiveMinimum": 0 },
-          "date": { "type": "string", "format": "date" }
+          "date": { "type": "string", "format": "date" },
+          "categorySource": { "type": "string", "enum": ["ai", "manual"] }
         }
       },
       "UpdateUserPreferencesInput": {
@@ -811,6 +848,11 @@
           "amount": { "type": "number" },
           "note": { "type": "string" },
           "date": { "type": "string", "format": "date-time" },
+          "categorySource": {
+            "type": "string",
+            "enum": ["ai", "manual"],
+            "example": "manual"
+          },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         }
@@ -1039,6 +1081,55 @@
                     "items": {
                       "$ref": "#/components/schemas/RecentTransaction"
                     }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "SuggestCategoryInput": {
+        "type": "object",
+        "required": ["title", "type"],
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "description": "The transaction title to categorize.",
+            "example": "Weekly groceries"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000,
+            "description": "Optional transaction description to help the AI categorize.",
+            "example": "Groceries for the week at the local market"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["income", "expense"],
+            "description": "The transaction type.",
+            "example": "expense"
+          }
+        }
+      },
+      "SuggestCategoryResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "categoryId": {
+                    "type": "string",
+                    "description": "ID of the suggested category.",
+                    "example": "507f1f77bcf86cd799439011"
+                  },
+                  "categoryName": {
+                    "type": "string",
+                    "description": "Name of the suggested category.",
+                    "example": "Groceries"
                   }
                 }
               }
