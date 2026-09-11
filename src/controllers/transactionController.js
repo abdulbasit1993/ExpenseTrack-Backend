@@ -50,7 +50,7 @@ function validateTransactionInput(data, { partial = false } = {}) {
   }
 
   // Category Source
-  if (!partial || data.categorySource !== undefined) {
+  if (data.categorySource !== undefined) {
     if (!categorySources.includes(data.categorySource)) {
       errors.push("categorySource must be either 'ai' or 'manual'");
     }
