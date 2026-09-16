@@ -10,6 +10,7 @@
     { "name": "Categories" },
     { "name": "Transactions" },
     { "name": "Dashboard" },
+    { "name": "Analytics" },
     { "name": "User" },
     { "name": "AI" }
   ],
@@ -460,6 +461,48 @@
             "content": {
               "application/json": {
                 "schema": { "$ref": "#/components/schemas/DashboardResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/analytics": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get analytics for the authenticated user",
+        "description": "Returns expense totals grouped by category, monthly income and expense trends, and the income-versus-expense summary. When omitted, the date range defaults to the current month and the previous five months. The maximum supported range is 24 calendar months.",
+        "parameters": [
+          {
+            "name": "fromDate",
+            "in": "query",
+            "description": "Inclusive start date in YYYY-MM-DD format.",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-04-01"
+            }
+          },
+          {
+            "name": "toDate",
+            "in": "query",
+            "description": "Inclusive end date in YYYY-MM-DD format.",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "example": "2026-09-30"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics data for the selected date range",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AnalyticsResponse" }
               }
             }
           },
@@ -1081,6 +1124,131 @@
                     "items": {
                       "$ref": "#/components/schemas/RecentTransaction"
                     }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AnalyticsRange": {
+        "type": "object",
+        "properties": {
+          "fromDate": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-04-01"
+          },
+          "toDate": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-09-30"
+          }
+        }
+      },
+      "ExpenseByCategory": {
+        "type": "object",
+        "properties": {
+          "categoryId": {
+            "type": "string",
+            "description": "Category ID. May be absent when a historical transaction has no category.",
+            "example": "507f1f77bcf86cd799439011"
+          },
+          "name": {
+            "type": "string",
+            "example": "Groceries"
+          },
+          "color": {
+            "type": "string",
+            "description": "Category hex color, or the uncategorized fallback color.",
+            "example": "#F97316"
+          },
+          "icon": {
+            "type": "string",
+            "example": "shopping-cart"
+          },
+          "total": {
+            "type": "number",
+            "description": "Total expense amount for this category within the selected date range.",
+            "example": 24500
+          },
+          "transactionCount": {
+            "type": "integer",
+            "example": 18
+          }
+        }
+      },
+      "MonthlyTrendItem": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "UTC month identifier.",
+            "example": "2026-04"
+          },
+          "year": {
+            "type": "integer",
+            "example": 2026
+          },
+          "month": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 12,
+            "example": 4
+          },
+          "label": {
+            "type": "string",
+            "example": "Apr 2026"
+          },
+          "income": {
+            "type": "number",
+            "example": 120000
+          },
+          "expense": {
+            "type": "number",
+            "example": 45000
+          }
+        }
+      },
+      "IncomeVsExpense": {
+        "type": "object",
+        "properties": {
+          "income": {
+            "type": "number",
+            "example": 720000
+          },
+          "expense": {
+            "type": "number",
+            "example": 265000
+          },
+          "net": {
+            "type": "number",
+            "description": "Income minus expense for the selected date range.",
+            "example": 455000
+          }
+        }
+      },
+      "AnalyticsResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "range": { "$ref": "#/components/schemas/AnalyticsRange" },
+                  "expensesByCategory": {
+                    "type": "array",
+                    "items": { "$ref": "#/components/schemas/ExpenseByCategory" }
+                  },
+                  "monthlyTrend": {
+                    "type": "array",
+                    "description": "One item per month in the requested range, including months with zero transactions.",
+                    "items": { "$ref": "#/components/schemas/MonthlyTrendItem" }
+                  },
+                  "incomeVsExpense": {
+                    "$ref": "#/components/schemas/IncomeVsExpense"
                   }
                 }
               }

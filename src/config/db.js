@@ -112,6 +112,11 @@ export async function connectDB() {
   // create indexes
   await db.collection("users").createIndex({ email: 1 }, { unique: true });
 
+  await db.collection("transactions").createIndex({ userId: 1, date: 1 });
+  await db
+    .collection("transactions")
+    .createIndex({ userId: 1, type: 1, date: 1 });
+
   await ensureCategoryUniqueIndex();
 
   await db.collection("transactions").createIndex({
