@@ -70,7 +70,8 @@
     "/api/auth/login": {
       "post": {
         "tags": ["Authentication"],
-        "summary": "Log in",
+        "summary": "Log in and create a session",
+        "description": "Returns a short-lived access token and a refresh token. Store the refresh token securely and use it to obtain a new token pair when the access token expires.",
         "security": [],
         "requestBody": {
           "required": true,
@@ -90,6 +91,89 @@
             }
           },
           "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/auth/refresh": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Refresh an access token",
+        "description": "Exchanges a valid refresh token for a new access token and refresh token. Refresh tokens are single-use: the supplied token is revoked after a successful refresh, so replace it with the returned refresh token.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshTokenInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Token pair refreshed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TokenPairResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": {
+            "description": "The refresh token is invalid, expired, or already revoked",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Log out of the current session",
+        "description": "Revokes the supplied refresh token. A valid access token is required.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshTokenInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session logged out",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessMessage" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/auth/logout-all": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Log out of all sessions",
+        "description": "Revokes every active refresh token for the authenticated user, logging the user out on all devices.",
+        "responses": {
+          "200": {
+            "description": "All sessions logged out",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessMessage" }
+              }
+            }
+          },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "500": { "$ref": "#/components/responses/ServerError" }
         }
@@ -722,6 +806,17 @@
           }
         }
       },
+      "RefreshTokenInput": {
+        "type": "object",
+        "required": ["refreshToken"],
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "The refresh token returned by register, login, or a previous refresh request.",
+            "example": "a3f8c9d2e1b4f7a6c5d8e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1"
+          }
+        }
+      },
       "CreateCategoryInput": {
         "type": "object",
         "required": ["name", "type"],
@@ -923,9 +1018,41 @@
             "properties": {
               "data": {
                 "type": "object",
+                "required": ["user", "accessToken", "refreshToken"],
                 "properties": {
                   "user": { "$ref": "#/components/schemas/User" },
-                  "token": { "type": "string" }
+                  "accessToken": {
+                    "type": "string",
+                    "description": "JWT access token used as a bearer token for protected API routes. It expires after 15 minutes by default."
+                  },
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "Refresh token used only with the refresh and logout endpoints. It expires after 7 days by default and is rotated after a successful refresh."
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "TokenPairResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "required": ["accessToken", "refreshToken"],
+                "properties": {
+                  "accessToken": {
+                    "type": "string",
+                    "description": "New JWT access token."
+                  },
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "New refresh token. Replace the token used in the request with this value."
+                  }
                 }
               }
             }

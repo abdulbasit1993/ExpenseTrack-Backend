@@ -12,6 +12,7 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import aiRoutes from "./routes/aiRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
+import { deleteExpiredTokens } from "./models/tokenModel.js";
 
 import swaggerUi from "swagger-ui-express";
 
@@ -58,7 +59,22 @@ app.use("/api/analytics", analyticsRoutes);
 const PORT = process.env.PORT || 5000;
 
 connectDB()
-  .then(() => {
+  .then(async () => {
+    deleteExpiredTokens().catch((err) =>
+      console.error("Intial token cleanup error: ", err.message),
+    );
+
+    setInterval(
+      async () => {
+        try {
+          await deleteExpiredTokens();
+          console.log("Cleaned expired refresh tokens");
+        } catch (err) {
+          console.error("Token cleanup error: ", err.message);
+        }
+      },
+      24 * 60 * 60 * 1000,
+    );
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
       console.log(

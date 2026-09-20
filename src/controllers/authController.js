@@ -4,6 +4,19 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 import { getDB } from "../config/db.js";
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from "../utils/tokenUtils.js";
+import {
+  storeRefreshToken,
+  findValidToken,
+  revokeToken,
+  revokeAllUserTokens,
+  deleteExpiredTokens,
+  hashToken,
+} from "../models/tokenModel.js";
 
 function validateUser(data) {
   const errors = [];
@@ -43,6 +56,21 @@ function buildUser(payload) {
   };
 }
 
+async function getTokensCollection() {
+  const db = getDB();
+  return db.collection("tokens");
+}
+
+function getRefreshTokenExpiry(token) {
+  const decoded = jwt.decode(token);
+
+  if (!decoded || typeof decoded === "string" || !decoded.exp) {
+    throw new Error("Refresh token is missing an expiration claim");
+  }
+
+  return new Date(decoded.exp * 1000);
+}
+
 export async function registerUser(req, res) {
   try {
     const errors = validateUser(req.body);
@@ -78,10 +106,17 @@ export async function registerUser(req, res) {
 
     const result = await users.insertOne(user);
 
-    const token = jwt.sign(
-      { userId: result.insertedId },
-      process.env.JWT_SECRET,
-    );
+    const accessToken = signAccessToken({ userId: result.insertedId });
+    const refreshToken = signRefreshToken({ userId: result.insertedId });
+    const refreshTokenHash = hashToken(refreshToken);
+    const fingerprint = req.headers["user-agent"] || "";
+
+    await storeRefreshToken({
+      userId: result.insertedId,
+      tokenHash: refreshTokenHash,
+      expiresAt: getRefreshTokenExpiry(refreshToken),
+      fingerprint,
+    });
 
     // remove password before sending
     const { password: _, ...userWithoutPassword } = user;
@@ -91,7 +126,8 @@ export async function registerUser(req, res) {
       message: "User created successfully",
       data: {
         user: userWithoutPassword,
-        token,
+        accessToken,
+        refreshToken,
       },
     });
   } catch (error) {
@@ -140,9 +176,16 @@ export async function loginUser(req, res) {
       });
     }
 
-    // generate access token
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
-      expiresIn: "800d",
+    const accessToken = signAccessToken({ userId: user._id });
+    const refreshToken = signRefreshToken({ userId: user._id });
+    const refreshTokenHash = hashToken(refreshToken);
+    const fingerprint = req.headers["user-agent"] || "";
+
+    await storeRefreshToken({
+      userId: user._id,
+      tokenHash: refreshTokenHash,
+      expiresAt: getRefreshTokenExpiry(refreshToken),
+      fingerprint,
     });
 
     // remove password before sending
@@ -153,9 +196,107 @@ export async function loginUser(req, res) {
       message: "Login successful",
       data: {
         user: userWithoutPassword,
-        token,
+        accessToken,
+        refreshToken,
       },
     });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function refreshToken(req, res) {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Refresh token is required" });
+    }
+
+    const refreshTokenHash = hashToken(refreshToken);
+    const stored = await findValidToken(refreshTokenHash);
+
+    if (!stored) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid or expired refresh token" });
+    }
+
+    let decoded;
+    try {
+      decoded = verifyRefreshToken(refreshToken);
+    } catch {
+      await revokeToken(refreshTokenHash);
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid or expired refresh token" });
+    }
+
+    const accessToken = signAccessToken({ userId: decoded.userId });
+    const newRefreshToken = signRefreshToken({ userId: decoded.userId });
+    const newRefreshTokenHash = hashToken(newRefreshToken);
+    const fingerprint = req.headers["user-agent"] || "";
+
+    await storeRefreshToken({
+      userId: decoded.userId,
+      tokenHash: newRefreshTokenHash,
+      expiresAt: getRefreshTokenExpiry(newRefreshToken),
+      fingerprint,
+    });
+
+    await revokeToken(refreshTokenHash);
+
+    return res.status(200).json({
+      success: true,
+      message: "Token refreshed",
+      data: {
+        accessToken,
+        refreshToken: newRefreshToken,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function logoutUser(req, res) {
+  try {
+    const { refreshToken } = req.body;
+
+    if (!refreshToken) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Refresh token is required" });
+    }
+
+    const refreshTokenHash = hashToken(refreshToken);
+    await revokeToken(refreshTokenHash);
+
+    return res
+      .status(200)
+      .json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+}
+
+export async function logoutAll(req, res) {
+  try {
+    await revokeAllUserTokens(req.user.userId);
+    return res
+      .status(200)
+      .json({ success: true, message: "Logged out from all devices" });
   } catch (error) {
     return res.status(500).json({
       success: false,
