@@ -179,6 +179,91 @@
         }
       }
     },
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Request 6-digit OTP for password reset",
+        "description": "Sends a 6-digit one-time password to the user's email for password reset. The OTP expires in 10 minutes.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RequestOTPInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP sent successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OTPResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/auth/verify-otp": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify 6-digit OTP code",
+        "description": "Verifies the 6-digit OTP code sent to the user's email. Returns success if the OTP is valid.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/VerifyOTPInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OTP verified successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OTPVerificationResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Reset password with verified OTP",
+        "description": "Resets the user's password using a verified 6-digit OTP code. The new password must be at least 6 characters long.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResetPasswordInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successfully",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/SuccessMessage" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
     "/api/auth/me": {
       "get": {
         "tags": ["Authentication"],
@@ -1425,6 +1510,109 @@
                     "type": "string",
                     "description": "Name of the suggested category.",
                     "example": "Groceries"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "RequestOTPInput": {
+        "type": "object",
+        "required": ["email"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com",
+            "description": "User's email address. OTP will be sent to this email."
+          }
+        }
+      },
+      "VerifyOTPInput": {
+        "type": "object",
+        "required": ["email", "otpCode"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com",
+            "description": "User's email address."
+          },
+          "otpCode": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "example": "123456",
+            "description": "6-digit one-time password sent to the user's email"
+          }
+        }
+      },
+      "ResetPasswordInput": {
+        "type": "object",
+        "required": ["email", "otpCode", "newPassword"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "john@example.com",
+            "description": "User's email address."
+          },
+          "otpCode": {
+            "type": "string",
+            "maxLength": 6,
+            "minLength": 6,
+            "example": "123456",
+            "description": "6-digit one-time password that was verified"
+          },
+          "newPassword": {
+            "type": "string",
+            "minLength": 6,
+            "example": "newPassword123",
+            "description": "New password for the user's account. Must be at least 6 characters long."
+          }
+        }
+      },
+      "OTPResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "requestId": {
+                    "type": "string",
+                    "description": "Internal request ID for tracking",
+                    "example": "req_01Hkxyz123abc"
+                  },
+                  "expiresIn": {
+                    "type": "string",
+                    "format": "duration",
+                    "description": "Time until OTP expires (e.g., '10m')",
+                    "example": "10m"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "OTPVerificationResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "expiresIn": {
+                    "type": "string",
+                    "format": "duration",
+                    "description": "Time until OTP expires",
+                    "example": "10m"
                   }
                 }
               }
