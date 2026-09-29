@@ -798,6 +798,68 @@
           "500": { "$ref": "#/components/responses/ServerError" }
         }
       }
+    },
+    "/api/ai/insights": {
+      "get": {
+        "tags": ["AI"],
+        "summary": "Get AI-powered spending insights",
+        "description": "Returns actionable spending insights for the authenticated user based on their transactions in the selected period.",
+        "parameters": [
+          {
+            "name": "period",
+            "in": "query",
+            "description": "Time period for the insights. Defaults to 'week'.",
+            "schema": { "type": "string", "enum": ["week", "month"], "default": "week" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Insights generated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InsightsResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
+    },
+    "/api/ai/monthly-summary": {
+      "get": {
+        "tags": ["AI"],
+        "summary": "Get AI-powered monthly spending summary",
+        "description": "Returns an AI-generated summary of the user's spending for a given month, including income, expense, net, budget remaining, and highest expense category.",
+        "parameters": [
+          {
+            "name": "year",
+            "in": "query",
+            "description": "Year for the summary. Defaults to the current year.",
+            "schema": { "type": "integer", "minimum": 1920, "maximum": 2100 }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "description": "Month as a number (1-12). Defaults to the current month.",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 12 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Monthly summary generated",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MonthlySummaryResponse" }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/ValidationError" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/ServerError" }
+        }
+      }
     }
   },
   "components": {
@@ -1511,6 +1573,91 @@
                     "description": "Name of the suggested category.",
                     "example": "Groceries"
                   }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "InsightsResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "period": {
+                    "type": "string",
+                    "enum": ["week", "month"],
+                    "description": "Period used to generate the insights."
+                  },
+                  "insights": {
+                    "type": "array",
+                    "description": "3-5 short, actionable spending insights.",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "MonthlySummaryData": {
+        "type": "object",
+        "properties": {
+          "income": {
+            "type": "number",
+            "description": "Total income for the month.",
+            "example": 120000
+          },
+          "expense": {
+            "type": "number",
+            "description": "Total expenses for the month.",
+            "example": 45000
+          },
+          "net": {
+            "type": "number",
+            "description": "Income minus expense for the month.",
+            "example": 75000
+          },
+          "monthlyBudget": {
+            "type": "number",
+            "description": "User's monthly budget.",
+            "example": 50000
+          },
+          "highestExpenseCategory": {
+            "type": "string",
+            "description": "Name of the highest expense category.",
+            "example": "Groceries"
+          },
+          "currency": {
+            "type": "string",
+            "description": "Currency code (e.g. USD, EUR, PKR).",
+            "example": "PKR"
+          }
+        }
+      },
+      "MonthlySummaryResponse": {
+        "allOf": [
+          { "$ref": "#/components/schemas/SuccessMessage" },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "month": {
+                    "type": "string",
+                    "description": "Month identifier in YYYY-MM format.",
+                    "example": "2026-09"
+                  },
+                  "summary": {
+                    "type": "string",
+                    "description": "AI-generated monthly spending summary."
+                  },
+                  "data": { "$ref": "#/components/schemas/MonthlySummaryData" }
                 }
               }
             }
