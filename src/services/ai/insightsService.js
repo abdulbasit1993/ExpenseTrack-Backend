@@ -30,7 +30,7 @@ function getPeriodRanges(period) {
       Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
     );
     const end = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0),
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1),
     );
     return { start, end };
   }
@@ -61,6 +61,7 @@ async function getPeriodData(db, userId, startDate, endDate) {
             totalExpense: {
               $sum: { $cond: [{ $eq: ["$type", "expense"] }, "$amount", 0] },
             },
+            transactionCount: { $sum: 1 },
           },
         },
       ])
@@ -105,7 +106,11 @@ async function getPeriodData(db, userId, startDate, endDate) {
   ]);
 
   return {
-    summary: summary[0] || { totalIncome: 0, totalExpense: 0 },
+    summary: summary[0] || {
+      totalIncome: 0,
+      totalExpense: 0,
+      transactionCount: 0,
+    },
     byCategory: byCategory || [],
   };
 }
@@ -120,19 +125,29 @@ export async function generateInsights(userId, period) {
   const db = getDB();
   const { start, end } = getPeriodRanges(period);
 
+  const user = await db
+    .collection("users")
+    .findOne({ _id: userId }, { projection: { currency: 1 } });
+
+  const currency = user?.currency ?? "USD";
+
   const { summary, byCategory } = await getPeriodData(db, userId, start, end);
+
+  const expenseCategories = byCategory.filter(
+    (category) => category.type === "expense",
+  );
 
   const prompt = `
     Based on the following transaction data for a user, generate 3-5 short, actionable spending insights.
 
     Data:
-    - Total income: $${summary.totalIncome}
-    - Total expenses: $${summary.totalExpense}
+    - Total income: ${currency} ${summary.totalIncome}
+    - Total expenses: ${currency} ${summary.totalExpense}
     - Net: $${summary.totalIncome - summary.totalExpense}
 
     Top expense categories:
     ${
-      byCategory
+      expenseCategories
         .slice(0, 3)
         .map((c) => `- ${c.name}: $${c.total}`)
         .join("\n") || "None"
@@ -198,7 +213,7 @@ export async function generateMonthlySummary(userId, year, month) {
 
   // Get period data
   const startOfMonthDate = new Date(Date.UTC(year, month - 1, 1));
-  const endOfMonthDate = new Date(Date.UTC(year, month, 1, 23, 59, 59, 999));
+  const endOfMonthDate = new Date(Date.UTC(year, month, 1));
 
   const { summary, byCategory } = await getPeriodData(
     db,
@@ -215,28 +230,51 @@ export async function generateMonthlySummary(userId, year, month) {
       { projection: { monthlyBudget: 1, currency: 1 } },
     );
 
+  const monthlyBudget = user?.monthlyBudget ?? 0;
+  const currency = user?.currency ?? "USD";
+
+  const expenseCategories = byCategory.filter(
+    (category) => category.type === "expense",
+  );
+
   // Find highest expense category
   const highestCategory =
-    byCategory.length > 0 ? byCategory[0] : { name: "No categories", total: 0 };
+    expenseCategories.length > 0
+      ? expenseCategories[0]
+      : { name: "No categories", total: 0 };
+
+  const net = summary.totalIncome - summary.totalExpense;
+
+  const budgetRemaining = monthlyBudget - summary.totalExpense;
+
+  const budgetStatus =
+    summary.totalExpense > monthlyBudget ? "over budget" : "within budget";
 
   const prompt = `
-    Generate a monthly spending summary for ${year}-${month.toString().padStart(2, "0")}.
+    Generate a concise monthly spending summary for ${year}-${month.toString().padStart(2, "0")}.
 
-    Key data:
-    - Total income: $${summary.totalIncome}
-    - Total expenses: $${summary.totalExpense}
-    - Net: $${summary.totalIncome - summary.totalExpense}
-    - Monthly budget: $${user?.monthlyBudget ?? 0}
-    - Budget remaining: $${(user?.monthlyBudget ?? 0) - summary.totalExpense}
-    - Highest expense category: ${highestCategory.name} ($${highestCategory.total})
+    Use ONLY the following factual data:
+
+    - Total income: ${currency} ${summary.totalIncome}
+    - Total expenses:  ${currency} ${summary.totalExpense}
+    - Net: ${currency} ${net}
+    - Monthly budget: ${currency} ${monthlyBudget}
+    - Budget remaining: ${currency} ${budgetRemaining}
+    - Budget status: ${budgetStatus}
+    - Highest expense category: ${highestCategory.name} (${currency} ${highestCategory.total})
     - Number of transactions: ${summary.transactionCount || 0}
 
-    Please provide a concise 1-2 sentence summary in JSON format:
+    Write a concise 1-2 sentence summary.
+
+    The budget status has already been calculated by the application.
+    Do not change or reinterpret it.
+
+    Return ONLY valid JSON in this format:
     {
-        "summary": "Your highest expense category this month was {category}. You remained within your monthly budget."
+        "summary": "Your monthly spending summary here."
     }
 
-    Format: ONLY return valid JSON with a "summary" field. No additional text.
+    Do not include markdown, code fences, reasoning, or any additional text.
   `;
 
   const response = await openrouter.chat.send({
@@ -246,7 +284,7 @@ export async function generateMonthlySummary(userId, year, month) {
         {
           role: "system",
           content:
-            "You are a financial summary assistant. Generate a concise monthly spending summary based on the data provided. Return ONLY valid JSON with a 'summary' field.",
+            "You are a financial summary assistant. Generate a concise monthly spending summary based strictly on the financial data provided. Do not invent or change any numbers or financial facts. Return ONLY valid JSON with a 'summary' field.",
         },
         {
           role: "user",
@@ -281,10 +319,14 @@ export async function generateMonthlySummary(userId, year, month) {
     data: {
       income: summary.totalIncome,
       expense: summary.totalExpense,
-      net: summary.totalIncome - summary.totalExpense,
-      monthlyBudget: user?.monthlyBudget ?? 0,
+      net,
+      monthlyBudget,
+      budgetRemaining,
+      budgetStatus,
       highestExpenseCategory: highestCategory.name,
-      currency: user?.currency ?? "USD",
+      highestExpenseAmount: highestCategory.total,
+      transactionCount: summary.transactionCount,
+      currency,
     },
   };
 }
