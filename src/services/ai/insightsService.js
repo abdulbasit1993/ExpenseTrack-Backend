@@ -1,5 +1,6 @@
 import { OpenRouter } from "@openrouter/sdk";
 import { getDB } from "../../config/db.js";
+import { ObjectId } from "mongodb";
 
 const openrouter = new OpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -92,7 +93,9 @@ async function getPeriodData(db, userId, startDate, endDate) {
         {
           $project: {
             _id: 0,
-            name: "$_id.name",
+            name: {
+              $ifNull: ["$_id.name", "Uncategorized"],
+            },
             type: "$_id.type",
             total: 1,
             count: 1,
@@ -117,21 +120,33 @@ async function getPeriodData(db, userId, startDate, endDate) {
 
 /**
  * Generates AI-powered spending insights.
- * @param {string} userId - User ID
+ * @param {import("mongodb").ObjectId} userId - User ID
  * @param {string} period - "week" or "month"
  * @returns {Promise<Object>} { period, insights: string[] }
  */
 export async function generateInsights(userId, period) {
   const db = getDB();
+
+  if (!ObjectId.isValid(userId)) {
+    throw new Error("Invalid user ID");
+  }
+
+  const objectUserId = new ObjectId(userId);
+
   const { start, end } = getPeriodRanges(period);
 
   const user = await db
     .collection("users")
-    .findOne({ _id: userId }, { projection: { currency: 1 } });
+    .findOne({ _id: objectUserId }, { projection: { currency: 1 } });
 
   const currency = user?.currency ?? "USD";
 
-  const { summary, byCategory } = await getPeriodData(db, userId, start, end);
+  const { summary, byCategory } = await getPeriodData(
+    db,
+    objectUserId,
+    start,
+    end,
+  );
 
   const expenseCategories = byCategory.filter(
     (category) => category.type === "expense",
@@ -143,13 +158,13 @@ export async function generateInsights(userId, period) {
     Data:
     - Total income: ${currency} ${summary.totalIncome}
     - Total expenses: ${currency} ${summary.totalExpense}
-    - Net: $${summary.totalIncome - summary.totalExpense}
+    - Net: ${currency} ${summary.totalIncome - summary.totalExpense}
 
     Top expense categories:
     ${
       expenseCategories
         .slice(0, 3)
-        .map((c) => `- ${c.name}: $${c.total}`)
+        .map((c) => `- ${c.name}:  ${currency} ${c.total}`)
         .join("\n") || "None"
     }
 
@@ -191,13 +206,18 @@ export async function generateInsights(userId, period) {
     throw new Error("AI returned an invalid response");
   }
 
-  if (!Array.isArray(result.insights)) {
+  if (
+    !Array.isArray(result.insights) ||
+    !result.insights.every(
+      (insight) => typeof insight === "string" && insight.trim().length > 0,
+    )
+  ) {
     throw new Error("AI response does not contain a valid insights array");
   }
 
   return {
     period,
-    insights: result.insights.slice(0, 5),
+    insights: result.insights.map((insight) => insight.trim()).slice(0, 5),
   };
 }
 
@@ -211,13 +231,19 @@ export async function generateInsights(userId, period) {
 export async function generateMonthlySummary(userId, year, month) {
   const db = getDB();
 
+  if (!ObjectId.isValid(userId)) {
+    throw new Error("Invalid user ID");
+  }
+
+  const objectUserId = new ObjectId(userId);
+
   // Get period data
   const startOfMonthDate = new Date(Date.UTC(year, month - 1, 1));
   const endOfMonthDate = new Date(Date.UTC(year, month, 1));
 
   const { summary, byCategory } = await getPeriodData(
     db,
-    userId,
+    objectUserId,
     startOfMonthDate,
     endOfMonthDate,
   );
@@ -226,7 +252,7 @@ export async function generateMonthlySummary(userId, year, month) {
   const user = await db
     .collection("users")
     .findOne(
-      { _id: userId },
+      { _id: objectUserId },
       { projection: { monthlyBudget: 1, currency: 1 } },
     );
 
@@ -248,7 +274,11 @@ export async function generateMonthlySummary(userId, year, month) {
   const budgetRemaining = monthlyBudget - summary.totalExpense;
 
   const budgetStatus =
-    summary.totalExpense > monthlyBudget ? "over budget" : "within budget";
+    monthlyBudget <= 0
+      ? "not set"
+      : summary.totalExpense > monthlyBudget
+        ? "over budget"
+        : "within budget";
 
   const prompt = `
     Generate a concise monthly spending summary for ${year}-${month.toString().padStart(2, "0")}.
