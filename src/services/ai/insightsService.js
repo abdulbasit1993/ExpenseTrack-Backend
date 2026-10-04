@@ -198,9 +198,12 @@ export async function generateInsights(userId, period) {
     throw new Error("AI returned an empty response");
   }
 
+  // Strip markdown code fences that the model sometimes wraps the JSON in
+  const cleaned = content.replace(/```[a-zA-Z]*\n?/g, "").replace(/```/g, "").trim();
+
   let result;
   try {
-    result = JSON.parse(content);
+    result = JSON.parse(cleaned);
   } catch (error) {
     console.error("Invalid AI response: ", content);
     throw new Error("AI returned an invalid response");
@@ -331,9 +334,12 @@ export async function generateMonthlySummary(userId, year, month) {
     throw new Error("AI returned an empty response");
   }
 
+  // Strip markdown code fences that the model sometimes wraps the JSON in
+  const cleaned = content.replace(/```[a-zA-Z]*\n?/g, "").replace(/```/g, "").trim();
+
   let result;
   try {
-    result = JSON.parse(content);
+    result = JSON.parse(cleaned);
   } catch (error) {
     console.error("Invalid AI response: ", content);
     throw new Error("AI returned an invalid response");
